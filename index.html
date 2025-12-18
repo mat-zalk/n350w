@@ -74,6 +74,9 @@
         <span id="statusFuelDetail" class="text-slate-400">Fuel: L -- / R --</span>
         <span id="statusAnnual" class="text-slate-400">Annual: --</span>
       </div>
+      <div id="lastUpdateRow" class="mt-2 text-center text-xs text-slate-500 hidden">
+        <span id="lastUpdateText">Last update: --</span>
+      </div>
     </div>
 
     <!-- Tab Navigation -->
@@ -375,6 +378,11 @@
       
       // Load status from server
       loadStatus();
+      
+      // Auto-refresh every 60 seconds
+      setInterval(() => {
+        loadStatus();
+      }, 60000);
     });
 
     async function loadStatus() {
@@ -384,6 +392,29 @@
         if (data.success) {
           currentStatus = data.status;
           updateStatusDisplay();
+          
+          // Update last update display
+          if (data.lastUpdate) {
+            const lastUpdateRow = document.getElementById('lastUpdateRow');
+            const lastUpdateText = document.getElementById('lastUpdateText');
+            const pilotName = data.lastUpdate.pilot === 'mat' ? 'Mat' : 'Dan';
+            const hoursAgo = data.lastUpdate.hoursAgo;
+            
+            let timeText;
+            if (hoursAgo === 0) {
+              timeText = 'just now';
+            } else if (hoursAgo === 1) {
+              timeText = '1 hour ago';
+            } else if (hoursAgo < 24) {
+              timeText = `${hoursAgo} hours ago`;
+            } else {
+              const daysAgo = Math.floor(hoursAgo / 24);
+              timeText = daysAgo === 1 ? '1 day ago' : `${daysAgo} days ago`;
+            }
+            
+            lastUpdateText.textContent = `Last flight: ${pilotName}, ${timeText}`;
+            lastUpdateRow.classList.remove('hidden');
+          }
         }
       } catch (error) {
         console.error('Failed to load status:', error);
