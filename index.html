@@ -79,6 +79,31 @@
       </div>
     </div>
 
+    <!-- Recent Flights Collapsible Section -->
+    <div class="mb-4">
+      <button id="recentFlightsToggle" onclick="toggleRecentFlights()" 
+              class="w-full flex items-center justify-between bg-slate-800 hover:bg-slate-700 rounded-lg px-4 py-3 transition-colors">
+        <div class="flex items-center gap-2">
+          <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span class="text-slate-300 font-medium">Recent Flights</span>
+          <span id="recentFlightsCount" class="text-xs text-slate-500 bg-slate-700 px-2 py-0.5 rounded-full">--</span>
+        </div>
+        <svg id="recentFlightsChevron" class="w-5 h-5 text-slate-400 transition-transform duration-200" 
+             fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+      
+      <div id="recentFlightsContent" class="hidden mt-2 bg-slate-800 rounded-lg overflow-hidden">
+        <div id="recentFlightsList" class="divide-y divide-slate-700">
+          <!-- Flights will be populated here -->
+        </div>
+      </div>
+    </div>
+
     <!-- Tab Navigation -->
     <div class="flex gap-1 mb-4 bg-slate-800 rounded-lg p-1">
       <button onclick="showTab('log')" id="tabLog" class="flex-1 py-2 px-3 rounded-md text-sm font-medium transition bg-blue-600 text-white">
@@ -402,6 +427,11 @@
           currentStatus = data.status;
           updateStatusDisplay();
           
+          // Render recent flights
+          if (data.recentFlights) {
+            renderRecentFlights(data.recentFlights);
+          }
+          
           // Update last update display
           if (data.lastUpdate) {
             const lastUpdateRow = document.getElementById('lastUpdateRow');
@@ -429,6 +459,86 @@
         console.error('Failed to load status:', error);
         showError('Failed to connect to server');
       }
+    }
+
+    // =========================================================================
+    // RECENT FLIGHTS
+    // =========================================================================
+    function toggleRecentFlights() {
+      const content = document.getElementById('recentFlightsContent');
+      const chevron = document.getElementById('recentFlightsChevron');
+      
+      if (content.classList.contains('hidden')) {
+        content.classList.remove('hidden');
+        chevron.style.transform = 'rotate(180deg)';
+      } else {
+        content.classList.add('hidden');
+        chevron.style.transform = 'rotate(0deg)';
+      }
+    }
+
+    function renderRecentFlights(flights) {
+      const container = document.getElementById('recentFlightsList');
+      const countBadge = document.getElementById('recentFlightsCount');
+      
+      if (!flights || flights.length === 0) {
+        container.innerHTML = '<div class="px-4 py-3 text-slate-500 text-sm">No flights logged yet</div>';
+        countBadge.textContent = '0';
+        return;
+      }
+      
+      countBadge.textContent = flights.length;
+      
+      container.innerHTML = flights.map(flight => {
+        const date = new Date(flight.timestamp);
+        const dateStr = date.toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric',
+          year: date.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
+        });
+        const timeStr = date.toLocaleTimeString('en-US', { 
+          hour: 'numeric', 
+          minute: '2-digit'
+        });
+        
+        // Format hours with one decimal
+        const hours = flight.flightHours ? flight.flightHours.toFixed(1) : '--';
+        
+        // Badge for ferry flights
+        const ferryBadge = flight.type === 'Ferry' 
+          ? '<span class="text-xs bg-amber-600/30 text-amber-400 px-1.5 py-0.5 rounded ml-2">Ferry</span>' 
+          : '';
+        
+        // Pilot display
+        const pilotName = flight.pilot ? (flight.pilot.toLowerCase() === 'mat' ? 'Mat' : 'Dan') : '';
+        const pilotDisplay = pilotName 
+          ? `<span class="text-slate-500">• ${pilotName}</span>` 
+          : '';
+        
+        return `
+          <div class="px-4 py-3 hover:bg-slate-750">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="text-slate-300">${dateStr}</span>
+                <span class="text-slate-500 text-sm">${timeStr}</span>
+                ${pilotDisplay}
+                ${ferryBadge}
+              </div>
+              <div class="text-right">
+                <span class="font-mono text-blue-400 font-medium">${hours} hrs</span>
+              </div>
+            </div>
+            <div class="flex items-center justify-between mt-1 text-sm">
+              <div class="text-slate-500">
+                Hobbs: <span class="text-slate-400 font-mono">${flight.hobbs ? flight.hobbs.toFixed(1) : '--'}</span>
+              </div>
+              <div class="text-slate-500">
+                Fuel: <span class="text-slate-400 font-mono">${flight.fuelLeft || '--'}L / ${flight.fuelRight || '--'}R</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
     }
 
     // =========================================================================
@@ -545,6 +655,8 @@
           showToast(result.result);
           currentStatus = result.status;
           updateStatusDisplay();
+          // Reload to get updated recent flights
+          loadStatus();
           // Clear form
           document.getElementById('fuelLeft').value = '';
           document.getElementById('fuelRight').value = '';
